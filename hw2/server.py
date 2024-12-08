@@ -1,13 +1,14 @@
 import fastapi
 import uvicorn
-import logging
 import time
+
+from logger import logger
 
 router = fastapi.APIRouter()
 
 @router.get("/ping")
 async def ping():
-    logging.info('Received ping request')
+    logger.info('Received ping request')
     return {"status": "ok"}
 
 class Server:
@@ -26,5 +27,5 @@ class Server:
             try:
                 uvicorn.run(app=self._app, host=self._host, port=self._port)
             except Exception as e:
-                logging.error(f'Error during server running: {e}')
+                logger.error(f'Error during server running: {e}')
             time.sleep(1)

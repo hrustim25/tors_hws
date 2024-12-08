@@ -1,10 +1,10 @@
 import json
 import typing
-import logging
 import os
 import threading
 
 import server
+from logger import logger
 
 CONFIG_FILE_PATH = '.'
 CONFIG_FILE_NAME = 'config.json'
@@ -16,8 +16,6 @@ SERVER_PORT = int(os.environ.get('SERVER_PORT'))
 
 NODE_HOST = os.environ.get('NODE_HOST')
 NODE_PORT = int(os.environ.get('NODE_PORT'))
-
-logger = logging.getLogger(__name__)
 
 
 def readConfig() -> typing.Dict[str, typing.Any]:
@@ -41,8 +39,6 @@ if __name__ == '__main__':
 
     server = server.Server(host=SERVER_HOST, port=SERVER_PORT)
     server_thread = threading.Thread(target=server.run_forever)
-
-    logger.info('Started server and timer')
 
     server_thread.start()
 
