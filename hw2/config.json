@@ -1,13 +1,24 @@
 {
     "node_ids": [
-        "node_1"
+        "node_1",
+        "node_2",
+        "node_3"
     ],
     "nodes": {
         "node_1": {
-            "address": "node_1",
+            "address": "http://node_1:80",
+            "port": 80
+        },
+        "node_2": {
+            "address": "http://node_2:80",
+            "port": 80
+        },
+        "node_3": {
+            "address": "http://node_3:80",
             "port": 80
         }
     },
-    "election_timeout": 5.0,
-    "heartbeat_time": 1.0
+    "heartbeat_time": 2.0,
+    "heartbeat_timeout": 0.5,
+    "election_timeout": 5.0
 }

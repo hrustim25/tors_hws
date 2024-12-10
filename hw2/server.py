@@ -6,10 +6,16 @@ from logger import logger
 
 router = fastapi.APIRouter()
 
-@router.get("/ping")
+@router.get('/ping')
 async def ping():
     logger.info('Received ping request')
-    return {"status": "ok"}
+    return {'status': 'ok'}
+
+@router.post('/heartbeat')
+async def heartbeat(body = fastapi.Body()):
+    node_id = body['node_id']
+    logger.info(f'Got heartbeat from {node_id}')
+    return {'status': 'ok'}
 
 class Server:
     _app: fastapi.FastAPI
