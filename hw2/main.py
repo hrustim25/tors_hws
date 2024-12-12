@@ -5,6 +5,7 @@ import threading
 
 import server
 import heartbeater
+import node
 
 from logger import logger
 
@@ -68,6 +69,10 @@ def main():
 
     heartbeat_sender = heartbeater.Heartbeater(current_node_id=CURRENT_NODE_ID, hosts=hosts, heartbeat_time=heartbeat_time, heartbeat_timeout=heartbeat_timeout)
     heartbeat_sender.start_heartbeat_timer()
+
+    logger.info('Setting up node...')
+
+    node.node = node.Node(CURRENT_NODE_ID, config)
 
     logger.info('Starting server...')
 

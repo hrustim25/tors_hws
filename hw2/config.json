@@ -20,5 +20,8 @@
     },
     "heartbeat_time": 2.0,
     "heartbeat_timeout": 0.5,
-    "election_timeout": 5.0
+    "election_timeout": 5.0,
+    "leader_alive_timeout": 3.0,
+    "log_propagate_timeout": 1.0,
+    "sent_requests_timeout": 1.0
 }
