@@ -6,6 +6,7 @@ import threading
 import server
 import heartbeater
 import node
+import internal_server
 
 from logger import logger
 
@@ -51,6 +52,15 @@ def start_server() -> threading.Thread:
     return server_thread
 
 
+def start_internal_server() -> threading.Thread:
+    node_server = internal_server.InternalServer(host=NODE_HOST, port=NODE_PORT)
+    node_server_thread = threading.Thread(target=node_server.run_forever)
+
+    node_server_thread.start()
+
+    return node_server_thread
+
+
 def main():
     global logger
 
@@ -59,25 +69,36 @@ def main():
 
     logger.info(f'Acquired config: {config}')
 
-    node_ids = config[CONFIG_NODE_IDS]
-    nodes = config[CONFIG_NODES]
-    heartbeat_time = float(config[CONFIG_HEARTBEAT_TIME])
-    heartbeat_timeout = float(config[CONFIG_HEARTBEAT_TIMEOUT])
-    election_timeout = float(config[CONFIG_ELECTION_TIMEOUT])
+    # node_ids = config[CONFIG_NODE_IDS]
+    # nodes = config[CONFIG_NODES]
+    # heartbeat_time = float(config[CONFIG_HEARTBEAT_TIME])
+    # heartbeat_timeout = float(config[CONFIG_HEARTBEAT_TIMEOUT])
+    # election_timeout = float(config[CONFIG_ELECTION_TIMEOUT])
 
-    hosts = {node_id: data['address'] for node_id, data in nodes.items() if node_id != CURRENT_NODE_ID}
+    # hosts = {node_id: data['address'] for node_id, data in nodes.items() if node_id != CURRENT_NODE_ID}
 
-    heartbeat_sender = heartbeater.Heartbeater(current_node_id=CURRENT_NODE_ID, hosts=hosts, heartbeat_time=heartbeat_time, heartbeat_timeout=heartbeat_timeout)
-    heartbeat_sender.start_heartbeat_timer()
+    # heartbeat_sender = heartbeater.Heartbeater(current_node_id=CURRENT_NODE_ID, hosts=hosts, heartbeat_time=heartbeat_time, heartbeat_timeout=heartbeat_timeout)
+    # heartbeat_sender.start_heartbeat_timer()
+
+    logger.info('Starting up internal server...')
+
+    node_server_thread = start_internal_server()
 
     logger.info('Setting up node...')
 
     node.node = node.Node(CURRENT_NODE_ID, config)
 
+    logger.info('Starting node...')
+
+    node.node.start()
+
     logger.info('Starting server...')
 
     server_thread = start_server()
 
+    logger.info('Waiting servers to finish')
+
+    node_server_thread.join()
     server_thread.join()
 
     logger.info('Finished execution')

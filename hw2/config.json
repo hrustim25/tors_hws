@@ -6,22 +6,25 @@
     ],
     "nodes": {
         "node_1": {
-            "address": "http://node_1:80",
-            "port": 80
+            "host": "node_1",
+            "external_port": 80,
+            "internal_port": 1234
         },
         "node_2": {
-            "address": "http://node_2:80",
-            "port": 80
+            "host": "node_2",
+            "external_port": 80,
+            "internal_port": 1234
         },
         "node_3": {
-            "address": "http://node_3:80",
-            "port": 80
+            "host": "node_3",
+            "external_port": 80,
+            "internal_port": 1234
         }
     },
     "heartbeat_time": 2.0,
     "heartbeat_timeout": 0.5,
     "election_timeout": 5.0,
-    "leader_alive_timeout": 3.0,
+    "leader_alive_timeout": 5.0,
     "log_propagate_timeout": 1.0,
-    "sent_requests_timeout": 1.0
+    "sent_requests_timeout": 0.5
 }
