@@ -4,7 +4,6 @@ import os
 import threading
 
 import server
-import heartbeater
 import node
 import internal_server
 
@@ -12,12 +11,6 @@ from logger import logger
 
 CONFIG_FILE_PATH = '.'
 CONFIG_FILE_NAME = 'config.json'
-
-CONFIG_NODE_IDS = 'node_ids'
-CONFIG_NODES = 'nodes'
-CONFIG_HEARTBEAT_TIME = 'heartbeat_time'
-CONFIG_HEARTBEAT_TIMEOUT = 'heartbeat_timeout'
-CONFIG_ELECTION_TIMEOUT = 'election_timeout'
 
 CURRENT_NODE_ID = os.environ.get('CURRENT_NODE_ID')
 
@@ -68,17 +61,6 @@ def main():
     config = read_config()
 
     logger.info(f'Acquired config: {config}')
-
-    # node_ids = config[CONFIG_NODE_IDS]
-    # nodes = config[CONFIG_NODES]
-    # heartbeat_time = float(config[CONFIG_HEARTBEAT_TIME])
-    # heartbeat_timeout = float(config[CONFIG_HEARTBEAT_TIMEOUT])
-    # election_timeout = float(config[CONFIG_ELECTION_TIMEOUT])
-
-    # hosts = {node_id: data['address'] for node_id, data in nodes.items() if node_id != CURRENT_NODE_ID}
-
-    # heartbeat_sender = heartbeater.Heartbeater(current_node_id=CURRENT_NODE_ID, hosts=hosts, heartbeat_time=heartbeat_time, heartbeat_timeout=heartbeat_timeout)
-    # heartbeat_sender.start_heartbeat_timer()
 
     logger.info('Starting up internal server...')
 
