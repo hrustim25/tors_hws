@@ -15,7 +15,7 @@ class Storage:
     def apply_operation(self, op: general.Operation) -> general.OperationResult:
         if op.type == general.OpType.CREATE:
             success = self.create(op.key)
-            return general.Operation(success=success, value=None)
+            return general.OperationResult(success=success, value=None)
         elif op.type == general.OpType.READ:
             success, value = self.get_value(op.key)
             return general.OperationResult(success=success, value=value)
@@ -23,8 +23,8 @@ class Storage:
             success, value = self.update(op.key, op.value)
             return general.OperationResult(success=success, value=value)
         elif op.type == general.OpType.DELETE:
-            value = self.delete(op.key)
-            return general.OperationResult(success=True, value=value)
+            success, value = self.delete(op.key)
+            return general.OperationResult(success=success, value=value)
         elif op.type == general.OpType.UPSERT:
             value = self.upsert(op.key, op.value)
             return general.OperationResult(success=True, value=value)
@@ -47,7 +47,7 @@ class Storage:
     def create(self, key: str) -> bool:
         self._rlock.acquire()
         try:
-            if key in self._storage[key]:
+            if key in self._storage:
                 return False
             self._storage[key] = None
             return True
@@ -57,7 +57,7 @@ class Storage:
     def update(self, key: str, value: typing.Any) -> typing.Tuple[bool, typing.Any]:
         self._rlock.acquire()
         try:
-            if key in self._storage:
+            if key not in self._storage:
                 return False, None
             old_value = self._storage[key]
             self._storage[key] = value
@@ -75,13 +75,15 @@ class Storage:
             return old_value
         finally:
             self._rlock.release()
-    
-    def delete(self, key: str) -> typing.Any:
+
+    def delete(self, key: str) -> typing.Tuple[bool, typing.Any]:
         self._rlock.acquire()
         try:
+            if key not in self._storage:
+                return False, None
             old_value = self._storage[key]
             del self._storage[key]
-            return old_value
+            return True, old_value
         finally:
             self._rlock.release()
 

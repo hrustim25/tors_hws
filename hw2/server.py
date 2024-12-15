@@ -21,18 +21,56 @@ async def heartbeat(body = fastapi.Body()):
     logger.info(f'Got heartbeat from {node_id}')
     return {'status': 'ok'}
 
-@router.post('/upsert')
-def upsert(key: str, value: typing.Any, response: fastapi.Response):
+def exec_leader_op(op: general.Operation, response: fastapi.Response) -> typing.Dict[str, typing.Any]:
     is_leader, leader_id = node.node.is_leader()
     if not is_leader:
         response.status_code = fastapi.status.HTTP_302_FOUND
         response.headers.append('Location', node.node.get_node_external_address(leader_id))
         return response
-    
-    op = general.Operation(type=general.OpType.UPSERT, key=key, value=value)
     result_queue = node.node.add_new_operation(op)
-    result = result_queue.get().serialize()
+    return result_queue.get().serialize() 
+
+
+@router.post('/create')
+def create(key: str, response: fastapi.Response):
+    op = general.Operation(type=general.OpType.CREATE, key=key)
+    result = exec_leader_op(op=op, response=response)
+    logger.info(f'Create result: {result}')
+    return result
+
+@router.get('/read')
+def read(key: str, response: fastapi.Response):
+    op = general.Operation(type=general.OpType.READ, key=key)
+    result = exec_leader_op(op=op, response=response)
+    logger.info(f'Read result: {result}')
+    return result
+
+@router.put('/update')
+def update(key: str, value: typing.Any, response: fastapi.Response):
+    op = general.Operation(type=general.OpType.UPDATE, key=key, value=value)
+    result = exec_leader_op(op=op, response=response)
+    logger.info(f'Update result: {result}')
+    return result
+
+@router.delete('/delete')
+def delete(key: str, response: fastapi.Response):
+    op = general.Operation(type=general.OpType.DELETE, key=key)
+    result = exec_leader_op(op=op, response=response)
+    logger.info(f'Delete result: {result}')
+    return result
+
+@router.post('/upsert')
+def upsert(key: str, value: typing.Any, response: fastapi.Response):
+    op = general.Operation(type=general.OpType.UPSERT, key=key, value=value)
+    result = exec_leader_op(op=op, response=response)
     logger.info(f'Upsert result: {result}')
+    return result
+
+@router.patch('/cas')
+def cas(key: str, value: typing.Any, expected: typing.Any, response: fastapi.Response):
+    op = general.Operation(type=general.OpType.CAS, key=key, value=value, expected=expected)
+    result = exec_leader_op(op=op, response=response)
+    logger.info(f'CAS result: {result}')
     return result
 
 class Server:

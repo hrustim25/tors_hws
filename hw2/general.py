@@ -10,7 +10,7 @@ class OpType:
 
 
 class Operation:
-    def __init__(self, type: OpType, key: str, value: typing.Any, expected: typing.Optional[typing.Any] = None):
+    def __init__(self, type: OpType, key: str, value: typing.Any = None, expected: typing.Optional[typing.Any] = None):
         self.type = type
         self.key = key
         self.value = value
