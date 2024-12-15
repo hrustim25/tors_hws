@@ -137,6 +137,7 @@ class Node:
                                 continue
                             self.sent_lengths[node_id] = 0
                             self.acked_lengths[node_id] = 0
+                        self.acked_lengths[self.node_id] = len(self.log)
                         self.log_propagate_timer.restart_timer(0, self.on_log_propagate)
                         return # new leader
                 elif vote_response.term > self.term:
@@ -154,10 +155,9 @@ class Node:
                 logger.info('Election failed, retry next time')
 
     def on_log_propagate(self):
-        logger.debug('I am LEADER. Propagating log')
-        self.log_propagate_timer.restart_timer(self.get_log_propagate_timeout(), self.on_log_propagate)
-        with self.lock:
-            for node_id in self.node_ids:
+        logger.info('I am LEADER. Propagating log')
+        for node_id in self.node_ids:
+            with self.lock:
                 if node_id == self.node_id:
                     continue
                 not_acked_index = self.acked_lengths[node_id]
@@ -170,9 +170,10 @@ class Node:
                     prev_log_term=prev_log_term,
                     commit_index=self.commit_index
                 )
-                log_response, success = self.node_requests_sender.send_log_request(receiver_id=node_id, request=log_request)
-                if not success:
-                    continue
+            log_response, success = self.node_requests_sender.send_log_request(receiver_id=node_id, request=log_request)
+            if not success:
+                continue
+            with self.lock:
                 self.acked_lengths[node_id] = log_response.acked_length
                 if log_response.current_term == self.term:
                     if log_response.ok and log_response.acked_length >= self.acked_lengths[node_id]:
@@ -182,6 +183,11 @@ class Node:
                     self.term = log_response.current_term
                     self.current_role = Role.FOLLOWER
                     self.votedFor = None
+        with self.lock:
+            if self.current_leader_id == self.node_id:
+                self.log_propagate_timer.restart_timer(self.get_log_propagate_timeout(), self.on_log_propagate)
+            else:
+                self.leader_alive_timer.restart_timer(self.get_leader_alive_timeout(), self.on_leader_dead)
 
 
     def handle_vote_request(self, vote_request_data):
@@ -264,7 +270,7 @@ class Node:
             logger.debug('No new operations in log')
 
     def commit_log_entries(self):
-        logger.info(f'In commit log entries, acked lengths: {self.acked_lengths}')
+        logger.info(f'In commit log entries, term: {self.term}, log length: {len(self.log)}, current leader: {self.current_leader_id}, acked lengths: {self.acked_lengths}')
         while self.commit_index + 1 < len(self.log):
             ready_count = 0
             for node_id in self.node_ids:
