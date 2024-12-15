@@ -32,8 +32,7 @@ class OperationResult:
     def serialize(self) -> typing.Dict[str, typing.Any]:
         return {
             'success': self.success,
-            'value': self.value,
-            'result_type': self.result_type
+            'value': self.value
         }
 
 
