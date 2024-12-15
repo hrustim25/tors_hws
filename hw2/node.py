@@ -4,6 +4,7 @@ import typing
 import threading
 import random
 import time
+import queue
 
 import storage
 import simple_timer
@@ -12,7 +13,7 @@ import requests_sender
 
 from node_requests import VoteRequest, VoteResponse, LogRequest, LogResponse
 
-from general import OpType, Operation, LogEntry, Role
+from general import OpType, Operation, OperationResult, LogEntry, Role
 
 
 class NodeRequestsSender:
@@ -22,7 +23,7 @@ class NodeRequestsSender:
         self.sender = requests_sender.RequestsSender()
 
     def send_vote_request(self, receiver_id: str, request: VoteRequest):
-        host = self.nodes_info[receiver_id]['host']
+        host = self.nodes_info[receiver_id]['internal_host']
         port = self.nodes_info[receiver_id]['internal_port']
         addr = f'http://{host}:{port}/vote'
 
@@ -33,7 +34,7 @@ class NodeRequestsSender:
         return vote_response, success
 
     def send_log_request(self, receiver_id: str, request: LogRequest):
-        host = self.nodes_info[receiver_id]['host']
+        host = self.nodes_info[receiver_id]['internal_host']
         port = self.nodes_info[receiver_id]['internal_port']
         addr = f'http://{host}:{port}/log/apply'
 
@@ -42,6 +43,11 @@ class NodeRequestsSender:
         if success:
             log_response.deserialize(response.json())
         return log_response, success
+
+    def get_node_external_address(self, node_id: str) -> str:
+        host = self.nodes_info[node_id]['external_host']
+        port = self.nodes_info[node_id]['external_port']
+        return f'http://{host}:{port}'
 
 
 class Node:
@@ -59,8 +65,8 @@ class Node:
 
         self.current_role = Role.FOLLOWER
         self.current_leader_id = None
-        self.sent_lengths = dict()
-        self.acked_lengths = dict()
+        self.sent_lengths = {node_id: 0 for node_id in self.node_ids}
+        self.acked_lengths = {node_id: 0 for node_id in self.node_ids}
 
         self.last_leader_message_time = None
         self.avg_leader_alive_timeout = config['leader_alive_timeout']
@@ -73,6 +79,8 @@ class Node:
         self.lock = threading.Lock()
 
         self.node_requests_sender = NodeRequestsSender(config)
+
+        self.result_queues: typing.Dict[int, queue.Queue] = dict()
 
     def get_leader_alive_timeout(self) -> float:
         return self.avg_leader_alive_timeout + random.uniform(-1.5, 1.5)
@@ -162,7 +170,19 @@ class Node:
                     prev_log_term=prev_log_term,
                     commit_index=self.commit_index
                 )
-                self.node_requests_sender.send_log_request(receiver_id=node_id, request=log_request)
+                log_response, success = self.node_requests_sender.send_log_request(receiver_id=node_id, request=log_request)
+                if not success:
+                    continue
+                self.acked_lengths[node_id] = log_response.acked_length
+                if log_response.current_term == self.term:
+                    if log_response.ok and log_response.acked_length >= self.acked_lengths[node_id]:
+                        self.commit_log_entries()
+                elif log_response.current_term > self.term:
+                    logger.info('Found new term during log propagate. Stepping down to follower')
+                    self.term = log_response.current_term
+                    self.current_role = Role.FOLLOWER
+                    self.votedFor = None
+
 
     def handle_vote_request(self, vote_request_data):
         logger.debug('Handling vote request')
@@ -201,20 +221,21 @@ class Node:
                 self.votedFor = None
                 self.current_role = Role.FOLLOWER
                 self.current_leader_id = log_request.leader_id
-            elif log_request.current_term == self.term and self.current_role == Role.CANDIDATE:
-                logger.info('Leader is chosen, stepping down to follower from candidate')
-                self.current_role = Role.FOLLOWER
+            elif log_request.current_term == self.term:
+                if self.current_role == Role.CANDIDATE:
+                    logger.info('Leader is chosen, stepping down to follower from candidate')
+                    self.current_role = Role.FOLLOWER
                 self.current_leader_id = log_request.leader_id
 
             self.last_leader_message_time = time.time()
 
             log_ok = (len(self.log) >= log_request.not_acked_index) and \
-                (len(self.log) == 0 or log_request.prev_log_term == self.log[log_request.not_acked_index - 1].term)
+                (log_request.not_acked_index == 0 or log_request.prev_log_term == self.log[log_request.not_acked_index - 1].term)
             new_acked_length = 0
             ok = False
             if log_request.current_term == self.term and log_ok:
                 self.current_leader_id = log_request.leader_id
-                self.apply_log_entries(log_request.not_acked_index, log_request.commit_index, log_request.entries)
+                self.append_log_entries(log_request.not_acked_index, log_request.commit_index, log_request.entries)
                 new_acked_length = log_request.not_acked_index + len(log_request.entries)
                 ok = True
             return LogResponse(
@@ -224,8 +245,63 @@ class Node:
                 ok=ok,
             ).serialize()
 
-    def apply_log_entries(self, not_acked_index: int, commit_index: int, entries: typing.List[typing.Any]):
-        pass
+    def append_log_entries(self, not_acked_index: int, commit_index: int, entries: typing.List[LogEntry]):
+        if len(entries) > 0 and len(self.log) > not_acked_index:
+            if self.log[not_acked_index].term != entries[0].term:
+                logger.info(f'Current log and new entries term mismatch, truncating log to size {not_acked_index}')
+                self.log = self.log[:not_acked_index]
+        if not_acked_index + len(entries) > len(self.log):
+            for entry in entries:
+                if entry.index < len(self.log):
+                    continue
+                self.log.append(entry)
+        if commit_index > self.commit_index:
+            logger.debug(f'Applying new {commit_index - self.commit_index} operations, new commit index: {commit_index}')
+            for index in range(self.commit_index + 1, commit_index + 1):
+                self.apply_operation(index)
+            self.commit_index = commit_index
+        else:
+            logger.debug('No new operations in log')
+
+    def commit_log_entries(self):
+        logger.info(f'In commit log entries, acked lengths: {self.acked_lengths}')
+        while self.commit_index + 1 < len(self.log):
+            ready_count = 0
+            for node_id in self.node_ids:
+                if self.acked_lengths[node_id] > self.commit_index + 1:
+                    ready_count += 1
+            if ready_count <= len(self.node_ids) // 2:
+                break
+            self.commit_index += 1
+            result = self.apply_operation(self.commit_index)
+            if self.commit_index in self.result_queues:
+                self.result_queues[self.commit_index].put(result)
+                del self.result_queues[self.commit_index]
+            logger.info(f'Committed entry {self.commit_index}, cur log size: {len(self.log)}, data: {self.log[self.commit_index].serialize()}')
+
+    def apply_operation(self, index: int) -> OperationResult:
+        # generally lock is not required, because we read committed message
+        logger.info(f'Applying operation: {index}')
+        return self.storage.apply_operation(op=self.log[index].op)
+
+    def is_leader(self) -> typing.Tuple[bool, typing.Optional[str]]:
+        with self.lock:
+            return self.node_id == self.current_leader_id, self.current_leader_id
+    
+    def get_node_external_address(self, node_id: str) -> str:
+        return self.node_requests_sender.get_node_external_address(node_id)
+
+    def add_new_operation(self, op: Operation) -> queue.Queue:
+        with self.lock:
+            new_index = len(self.log)
+            new_entry = LogEntry(index=new_index, term=self.term, op=op)
+            self.log.append(new_entry)
+            self.acked_lengths[self.node_id] = len(self.log)
+
+            logger.info(f'Added new entry to log: {new_entry.serialize()}, index: {new_index}, commit index: {self.commit_index}')
+
+            self.result_queues[new_index] = queue.Queue()
+            return self.result_queues[new_index]
 
 
 node: Node

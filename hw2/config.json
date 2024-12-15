@@ -6,19 +6,22 @@
     ],
     "nodes": {
         "node_1": {
-            "host": "node_1",
-            "external_port": 80,
-            "internal_port": 1234
+            "internal_host": "node_1",
+            "internal_port": 1234,
+            "external_host": "172.20.0.101",
+            "external_port": 80
         },
         "node_2": {
-            "host": "node_2",
-            "external_port": 80,
-            "internal_port": 1234
+            "internal_host": "node_2",
+            "internal_port": 1234,
+            "external_host": "172.20.0.102",
+            "external_port": 80
         },
         "node_3": {
-            "host": "node_3",
-            "external_port": 80,
-            "internal_port": 1234
+            "internal_host": "node_3",
+            "internal_port": 1234,
+            "external_host": "172.20.0.103",
+            "external_port": 80
         }
     },
     "heartbeat_time": 2.0,

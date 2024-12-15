@@ -10,11 +10,31 @@ class OpType:
 
 
 class Operation:
-    def __init__(self, type: OpType, key: str, value: typing.Any, expected: typing.Optional[typing.Any]):
+    def __init__(self, type: OpType, key: str, value: typing.Any, expected: typing.Optional[typing.Any] = None):
         self.type = type
         self.key = key
         self.value = value
         self.expected = expected
+
+
+class OperationResultType:
+    OK = 0
+    OPERATION_CANCELLED = 1
+    KEY_ERROR = 2
+
+
+class OperationResult:
+    def __init__(self, success: bool, value: typing.Any = None, result_type: OperationResultType = OperationResultType.OK):
+        self.success = success
+        self.value = value
+        self.result_type = result_type
+
+    def serialize(self) -> typing.Dict[str, typing.Any]:
+        return {
+            'success': self.success,
+            'value': self.value,
+            'result_type': self.result_type
+        }
 
 
 class LogEntry:
@@ -42,10 +62,12 @@ class LogEntry:
     def deserialize(self, json_data: typing.Dict[str, typing.Any]):
         self.index = json_data['index']
         self.term = json_data['term']
-        self.op.type = json_data['op']['type']
-        self.op.key = json_data['op']['key']
-        self.op.value = json_data['op']['value']
-        self.op.expected = json_data['op']['expected']
+        self.op = Operation(
+            type=json_data['op']['type'],
+            key=json_data['op']['key'],
+            value=json_data['op']['value'],
+            expected=json_data['op']['expected']
+        )
 
 
 class Role:

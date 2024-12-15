@@ -2,6 +2,8 @@ import typing
 
 from general import LogEntry
 
+from logger import logger
+
 class VoteRequest:
     def __init__(self, candidate_id: int, candidate_term: int, candidate_log_length: int, candidate_last_log_term: int):
         self.candidate_id = candidate_id
@@ -65,7 +67,7 @@ class LogRequest:
     def deserialize(self, json_data: typing.Dict[str, typing.Any]):
         self.entries: typing.List[LogEntry] = []
         for i in range(len(json_data['entries'])):
-            self.entries.append(LogRequest([], '', 0, 0, 0, 0))
+            self.entries.append(LogEntry(0, 0, None))
             self.entries[i].deserialize(json_data['entries'][i])
         self.leader_id = json_data['leader_id']
         self.current_term = json_data['current_term']

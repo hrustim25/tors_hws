@@ -1,8 +1,12 @@
 import fastapi
 import uvicorn
+
 import time
+import typing
 
 from logger import logger
+import node
+import general
 
 router = fastapi.APIRouter()
 
@@ -16,6 +20,20 @@ async def heartbeat(body = fastapi.Body()):
     node_id = body['node_id']
     logger.info(f'Got heartbeat from {node_id}')
     return {'status': 'ok'}
+
+@router.post('/upsert')
+def upsert(key: str, value: typing.Any, response: fastapi.Response):
+    is_leader, leader_id = node.node.is_leader()
+    if not is_leader:
+        response.status_code = fastapi.status.HTTP_302_FOUND
+        response.headers.append('Location', node.node.get_node_external_address(leader_id))
+        return response
+    
+    op = general.Operation(type=general.OpType.UPSERT, key=key, value=value)
+    result_queue = node.node.add_new_operation(op)
+    result = result_queue.get().serialize()
+    logger.info(f'Upsert result: {result}')
+    return result
 
 class Server:
     _app: fastapi.FastAPI

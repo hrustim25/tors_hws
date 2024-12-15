@@ -1,33 +1,29 @@
 version: "3"
 
+networks:
+  front:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
 services:
   node_1:
     build: ./
     environment:
-      SERVER_HOST: "0.0.0.0"
-      SERVER_PORT: 80
-      NODE_HOST: "node_1"
-      NODE_PORT: 1234
       CURRENT_NODE_ID: "node_1"
-    ports:
-      - 80:80
+    networks:
+      front:
+        ipv4_address: 172.20.0.101
   node_2:
     build: ./
     environment:
-      SERVER_HOST: "0.0.0.0"
-      SERVER_PORT: 80
-      NODE_HOST: "node_2"
-      NODE_PORT: 1234
       CURRENT_NODE_ID: "node_2"
-    ports:
-      - 81:80
+    networks:
+      front:
+        ipv4_address: 172.20.0.102
   node_3:
     build: ./
     environment:
-      SERVER_HOST: "0.0.0.0"
-      SERVER_PORT: 80
-      NODE_HOST: "node_3"
-      NODE_PORT: 1234
       CURRENT_NODE_ID: "node_3"
-    ports:
-      - 82:80
+    networks:
+      front:
+        ipv4_address: 172.20.0.103

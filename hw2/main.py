@@ -14,12 +14,6 @@ CONFIG_FILE_NAME = 'config.json'
 
 CURRENT_NODE_ID = os.environ.get('CURRENT_NODE_ID')
 
-SERVER_HOST = os.environ.get('SERVER_HOST')
-SERVER_PORT = int(os.environ.get('SERVER_PORT'))
-
-NODE_HOST = os.environ.get('NODE_HOST')
-NODE_PORT = int(os.environ.get('NODE_PORT'))
-
 
 def read_config() -> typing.Dict[str, typing.Any]:
     with open(f'{CONFIG_FILE_PATH}/{CONFIG_FILE_NAME}') as f:
@@ -34,10 +28,10 @@ def read_config() -> typing.Dict[str, typing.Any]:
         return config
 
 
-def start_server() -> threading.Thread:
+def start_server(config: typing.Dict[str, typing.Any]) -> threading.Thread:
     global server
 
-    server = server.Server(host=SERVER_HOST, port=SERVER_PORT)
+    server = server.Server(host=config['nodes'][CURRENT_NODE_ID]['external_host'], port=config['nodes'][CURRENT_NODE_ID]['external_port'])
     server_thread = threading.Thread(target=server.run_forever)
 
     server_thread.start()
@@ -45,8 +39,8 @@ def start_server() -> threading.Thread:
     return server_thread
 
 
-def start_internal_server() -> threading.Thread:
-    node_server = internal_server.InternalServer(host=NODE_HOST, port=NODE_PORT)
+def start_internal_server(config: typing.Dict[str, typing.Any]) -> threading.Thread:
+    node_server = internal_server.InternalServer(host=config['nodes'][CURRENT_NODE_ID]['internal_host'], port=config['nodes'][CURRENT_NODE_ID]['internal_port'])
     node_server_thread = threading.Thread(target=node_server.run_forever)
 
     node_server_thread.start()
@@ -64,7 +58,7 @@ def main():
 
     logger.info('Starting up internal server...')
 
-    node_server_thread = start_internal_server()
+    node_server_thread = start_internal_server(config)
 
     logger.info('Setting up node...')
 
@@ -76,7 +70,7 @@ def main():
 
     logger.info('Starting server...')
 
-    server_thread = start_server()
+    server_thread = start_server(config)
 
     logger.info('Waiting servers to finish')
 
