@@ -6,11 +6,11 @@ from logger import logger
 
 class Storage:
     _storage: typing.Dict[str, typing.Any]
-    _rlock: threading.RLock
+    _lock: threading.Lock
 
     def __init__(self):
         self._storage = {}
-        self._rlock = threading.RLock()
+        self._lock = threading.RLock()
     
     def apply_operation(self, op: general.Operation) -> general.OperationResult:
         if op.type == general.OpType.CREATE:
@@ -36,26 +36,26 @@ class Storage:
             return general.OperationResult(success=False, value=None)
 
     def get_value(self, key: str) -> typing.Tuple[bool, typing.Any]:
-        self._rlock.acquire(blocking=False)
+        self._lock.acquire()
         try:
             if key not in self._storage:
                 return False, None
             return True, self._storage[key]
         finally:
-            self._rlock.release()
+            self._lock.release()
 
     def create(self, key: str) -> bool:
-        self._rlock.acquire()
+        self._lock.acquire()
         try:
             if key in self._storage:
                 return False
             self._storage[key] = None
             return True
         finally:
-            self._rlock.release()
+            self._lock.release()
 
     def update(self, key: str, value: typing.Any) -> typing.Tuple[bool, typing.Any]:
-        self._rlock.acquire()
+        self._lock.acquire()
         try:
             if key not in self._storage:
                 return False, None
@@ -63,10 +63,10 @@ class Storage:
             self._storage[key] = value
             return True, old_value
         finally:
-            self._rlock.release()
+            self._lock.release()
 
     def upsert(self, key: str, value: typing.Any) -> typing.Any:
-        self._rlock.acquire()
+        self._lock.acquire()
         try:
             old_value = None
             if key in self._storage:
@@ -74,10 +74,10 @@ class Storage:
             self._storage[key] = value
             return old_value
         finally:
-            self._rlock.release()
+            self._lock.release()
 
     def delete(self, key: str) -> typing.Tuple[bool, typing.Any]:
-        self._rlock.acquire()
+        self._lock.acquire()
         try:
             if key not in self._storage:
                 return False, None
@@ -85,10 +85,10 @@ class Storage:
             del self._storage[key]
             return True, old_value
         finally:
-            self._rlock.release()
+            self._lock.release()
 
     def cas(self, key: str, value: typing.Any, expected: typing.Any) -> typing.Tuple[bool, typing.Any]:
-        self._rlock.acquire()
+        self._lock.acquire()
         try:
             if key not in self._storage:
                 return False, None
@@ -98,4 +98,4 @@ class Storage:
             self._storage[key] = value
             return True, old_value
         finally:
-            self._rlock.release()
+            self._lock.release()
